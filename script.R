@@ -18,8 +18,8 @@ source("./fct/read.eval1.R")
 
 
 # Loading environmental data, study area mask
-file <- list.files("./env", pattern = "1K", full.names = T)
-#file <- list.files("./env", pattern = "^eig", full.names = T)
+#file <- list.files("./env", pattern = "1K", full.names = T)
+file <- list.files("./env", pattern = "^eig", full.names = T)
 predictors <- stack(file[1])
 # Cortando pela MataAtlantica:
 mascara <- readOGR(dsn = "./data", layer = "Bioma_MA1148")
@@ -27,10 +27,10 @@ mascara <- readOGR(dsn = "./data", layer = "Bioma_MA1148")
 # FLORA ----
 # Loading occurrences:
 
-plants <- read.csv("./data/Flora_endemic_final.csv", row.names = 1)
-birds <- read.csv("./data/Birds_endemic_final.csv", row.names = 1)
-amphibians <- read.csv("./data/Amphibians_endemic_final.csv", row.names = 1)
-occs <- bind_rows(plants, birds) %>% bind_rows(amphibians)
+#plants <- read.csv("./data/Flora_endemic_final.csv", row.names = 1)
+#birds <- read.csv("./data/Birds_endemic_final.csv", row.names = 1)
+#amphibians <- read.csv("./data/Amphibians_endemic_final.csv", row.names = 1)
+#occs <- bind_rows(plants, birds) %>% bind_rows(amphibians)
 #head(occs)
 #count(occs, grupo)
 #occs %>% select(sp, grupo) %>% distinct() %>% count(grupo)
@@ -39,12 +39,13 @@ occs <- bind_rows(plants, birds) %>% bind_rows(amphibians)
 #As a consequence, at the end of this modelling phase 51 amphibian species, 122 bird species, and 612 woody plant species endemic to the Brazilian Atlantic Forest composed the final potential richness maps
 
 #quitar nombres
-library(purrr)
-occs_names <- occs$sp %>% map(~ flora::remove.authors(.)) %>% simplify2array()
-occs2 <- cbind(occs, occs_names)
-head(occs2)
+# library(purrr)
+# occs_names <- occs$sp %>% map(~ flora::remove.authors(.)) %>% simplify2array()
+# occs2 <- cbind(occs, occs_names)
+# head(occs2)
 # Defining names to be modelled (after taxa and spacial cleaning)
 #write.csv(occs2, "./data/occs_final_corrected_names.csv")
+occs2 <- read.csv("./data/occs_final_corrected_names.csv",row.names = 1)
 lista_locs <- occs2 %>% split(.$sp)
 lista_locs <- lista_locs
 #using the reproducible example
@@ -53,7 +54,7 @@ set.seed(712)
 
 #iniciar snowfall
 {
-sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_150918_modelagem.log")
+sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_170918_modelagem.log", type = "MPI")
 # 	#exporta variáveis e funções e pacotes
 sfExportAll()
 sfLibrary(rJava) #
@@ -90,55 +91,55 @@ tFinal - tInicial
 sfStop()
 }
 
-# finalModel ----
-
-{
-sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_150918_final_model.log")
-# 	#exporta variáveis e funções e pacotes
-sfExportAll()
-sfLibrary(rJava) #
-sfLibrary(raster)
-sfLibrary(ModelR)
-
-tInicial <- Sys.time()
-sfClusterApplyLB(lista_locs,
-                 fun = function(x) {
-                     ModelR::final_model(species_name = unique(x[,"occs_names"]),
-                                         select_partitions = T,
-                                         threshold = "spec_sens",
-                                         select_par = "TSS",
-                                         select_par_val = 0.7,
-                                         which_models = "bin_mean",
-                                         write_png = T,
-                                         models_dir = "./FLORA_buffermax_15092018")
-                     })
-tFinal <- Sys.time()
-tFinal - tInicial
-sfStop()
-}
-
-# ENSEMBLE ----
-{
-sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_150918_ensemble_model.log")
-# 	#exporta variáveis e funções e pacotes
-sfExportAll()
-sfLibrary(rJava) #
-sfLibrary(raster)
-sfLibrary(ModelR)
-
-tInicial <- Sys.time()
-sfClusterApplyLB(lista_locs,
-                 fun = function(x) {
-                     ModelR::ensemble_model(
-                         species_name = unique(x[, "occs_names"]),
-                         occurrences = x[, c("lon", "lat")],
-                         models_dir = "./FLORA_buffermax_15092018",
-                         which_models = "bin_mean",
-                         consensus = T,
-                         consensus_level = 0.5,
-                         write_png = T)
-                     })
-tFinal <- Sys.time()
-tFinal - tInicial
-sfStop()
-}
+# # finalModel ----
+#
+# {
+# sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_150918_final_model.log")
+# # 	#exporta variáveis e funções e pacotes
+# sfExportAll()
+# sfLibrary(rJava) #
+# sfLibrary(raster)
+# sfLibrary(ModelR)
+#
+# tInicial <- Sys.time()
+# sfClusterApplyLB(lista_locs,
+#                  fun = function(x) {
+#                      ModelR::final_model(species_name = unique(x[,"occs_names"]),
+#                                          select_partitions = T,
+#                                          threshold = "spec_sens",
+#                                          select_par = "TSS",
+#                                          select_par_val = 0.7,
+#                                          which_models = "bin_mean",
+#                                          write_png = T,
+#                                          models_dir = "./FLORA_buffermax_15092018")
+#                      })
+# tFinal <- Sys.time()
+# tFinal - tInicial
+# sfStop()
+# }
+#
+# # ENSEMBLE ----
+# {
+# sfInit(parallel = T, cpus = 24, slaveOutfile = "FLORA_150918_ensemble_model.log")
+# # 	#exporta variáveis e funções e pacotes
+# sfExportAll()
+# sfLibrary(rJava) #
+# sfLibrary(raster)
+# sfLibrary(ModelR)
+#
+# tInicial <- Sys.time()
+# sfClusterApplyLB(lista_locs,
+#                  fun = function(x) {
+#                      ModelR::ensemble_model(
+#                          species_name = unique(x[, "occs_names"]),
+#                          occurrences = x[, c("lon", "lat")],
+#                          models_dir = "./FLORA_buffermax_15092018",
+#                          which_models = "bin_mean",
+#                          consensus = T,
+#                          consensus_level = 0.5,
+#                          write_png = T)
+#                      })
+# tFinal <- Sys.time()
+# tFinal - tInicial
+# sfStop()
+# }
